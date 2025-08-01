@@ -1,10 +1,11 @@
 name: LWCTrust
 version: @version@
 main: org.popcraft.lwctrust.LWCTrust
-api-version: "1.13"
+api-version: "1.21"
 load: STARTUP
 depend: [LWC]
 authors: [pop4959]
+contributors: [zoumath19]
 description: A trust plugin module for LWC.
 website: https://github.com/pop4959/LWCTrust
 commands:
