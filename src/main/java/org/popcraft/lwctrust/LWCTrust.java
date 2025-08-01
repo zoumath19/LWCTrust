@@ -1,29 +1,28 @@
 package org.popcraft.lwctrust;
 
 import com.griefcraft.lwc.LWC;
-import org.apache.commons.lang.StringUtils;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.jetbrains.annotations.NotNull;
 import org.popcraft.lwctrust.locale.FileResourceLoader;
 import org.popcraft.lwctrust.locale.UTF8Control;
 
 import java.io.File;
 import java.io.InputStream;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public final class LWCTrust extends JavaPlugin {
 
     private ResourceBundle defaultBundle, localeBundle;
     private TrustCache trustCache, confirmCache;
-    private Metrics metrics;
 
     @Override
     public void onEnable() {
@@ -45,11 +44,13 @@ public final class LWCTrust extends JavaPlugin {
         this.defaultBundle = ResourceBundle.getBundle("locale", Locale.ENGLISH, new UTF8Control());
         if (messageFile.exists()) {
             // Load a custom provided locale file from the plugin folder
-            this.localeBundle = ResourceBundle.getBundle("locale", new Locale(locale),
+            this.localeBundle = ResourceBundle.getBundle("locale",
+                    Locale.forLanguageTag(locale),
                     new FileResourceLoader(this), new UTF8Control());
         } else if (localeResource != null) {
             // Load another valid locale that is included with the plugin
-            this.localeBundle = ResourceBundle.getBundle("locale", new Locale(locale),
+            this.localeBundle = ResourceBundle.getBundle("locale",
+                    Locale.forLanguageTag(locale),
                     new UTF8Control());
         } else {
             // Fall back to the default locale
@@ -65,23 +66,17 @@ public final class LWCTrust extends JavaPlugin {
         } catch (NoClassDefFoundError e) {
             this.getLogger().severe(getMessage("error.nolwc"));
             this.getLogger().severe(getMessage("url.lwc"));
-            this.setEnabled(false);
         }
-        // Enable bStats metrics
-        int pluginId = 6614;
-        this.metrics = new Metrics(this, pluginId);
     }
 
     @Override
-    @SuppressWarnings("deprecation")
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
         // Only players can trust
-        if (args.length < 1 || !(sender instanceof Player)) {
+        if (args.length < 1 || !(sender instanceof Player player)) {
             sender.sendMessage(getMessage("trust.description"));
             return false;
         }
         boolean confirm = this.getConfig().getBoolean("confirm-action", true);
-        Player player = (Player) sender;
         UUID playerUniqueId = player.getUniqueId();
         if ("add".equalsIgnoreCase(args[0]) && player.hasPermission("lwctrust.trust.add")) {
             // Get a list of existing unique players to add from the arguments
@@ -133,7 +128,7 @@ public final class LWCTrust extends JavaPlugin {
             } else {
                 List<String> playerNames = trusted.stream()
                         .map(uuid -> Bukkit.getOfflinePlayer(uuid).getName()).collect(Collectors.toList());
-                player.sendMessage(getMessage("trust.list", StringUtils.join(playerNames, ", ")));
+                player.sendMessage(getMessage("trust.list", String.join(", ", playerNames)));
             }
         } else if ("confirm".equalsIgnoreCase(args[0])) {
             // Add any trusts from pending confirmations, if any
@@ -170,11 +165,10 @@ public final class LWCTrust extends JavaPlugin {
     }
 
     @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!(sender instanceof Player)) {
+    public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String @NotNull [] args) {
+        if (!(sender instanceof Player player)) {
             return Collections.emptyList();
         }
-        Player player = (Player) sender;
         if (args.length == 1) {
             List<String> completions = new ArrayList<>();
             if (player.hasPermission("lwctrust.trust.add")) {
@@ -197,25 +191,13 @@ public final class LWCTrust extends JavaPlugin {
         }
     }
 
-    public static final Pattern RGB_PATTERN = Pattern.compile("&#[0-9a-fA-F]{6}");
-
     public String getMessage(String key, Object... args) {
         String localMessage = localeBundle.containsKey(key)
                 ? localeBundle.getString(key) : defaultBundle.getString(key);
         String formattedMessage = String.format(localMessage, args);
-        Matcher rgbMatcher = RGB_PATTERN.matcher(formattedMessage);
-        while (rgbMatcher.find()) {
-            String rgbMatch = rgbMatcher.group();
-            String rgbColor = String.valueOf(ChatColor.COLOR_CHAR) + 'x' +
-                    ChatColor.COLOR_CHAR + rgbMatch.charAt(2) +
-                    ChatColor.COLOR_CHAR + rgbMatch.charAt(3) +
-                    ChatColor.COLOR_CHAR + rgbMatch.charAt(4) +
-                    ChatColor.COLOR_CHAR + rgbMatch.charAt(5) +
-                    ChatColor.COLOR_CHAR + rgbMatch.charAt(6) +
-                    ChatColor.COLOR_CHAR + rgbMatch.charAt(7);
-            formattedMessage = formattedMessage.replaceAll(rgbMatch, rgbColor);
-        }
-        return ChatColor.translateAlternateColorCodes('&', formattedMessage);
+        // Use Kyori MiniMessage for RGB and legacy color codes
+        Component component = MiniMessage.miniMessage().deserialize(formattedMessage);
+        return LegacyComponentSerializer.legacyAmpersand().serialize(component);
     }
 
     public TrustCache getTrustCache() {

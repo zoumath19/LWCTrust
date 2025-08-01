@@ -7,14 +7,17 @@ plugins {
 group = project.property('pluginGroup')
 version = project.property('pluginVersion')
 
-sourceCompatibility = '1.8'
-targetCompatibility = '1.8'
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
 
 repositories {
     mavenCentral()
     maven {
-        name = 'spigotmc'
-        url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/'
+        name = "papermc"
+        url = uri("https://repo.papermc.io/repository/maven-public/")
     }
     maven {
         name = 'enderzone'
@@ -27,12 +30,12 @@ repositories {
 }
 
 dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.12'
-    compileOnly group: 'org.bukkit', name: 'bukkit', version: '1.13-R0.1-SNAPSHOT'
+    compileOnly("io.papermc.paper:paper-api:1.21.8-R0.1-SNAPSHOT")
     compileOnly group: 'com.griefcraft.lwc', name: 'LWCX', version: '2.2.0'
 }
 
 processResources {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
     from(sourceSets.main.resources.srcDirs) {
         filter ReplaceTokens, tokens: [version: version]
     }
